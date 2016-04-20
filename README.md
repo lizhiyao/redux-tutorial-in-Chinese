@@ -103,7 +103,7 @@ action creators 其实就是一个函数而已。
 有一点需要注意的是action的格式。在flux中，action是一个js对象并包含 `type` 属性是一个惯例。
 这个 `type` 允许action的进一步处理。此外，action中我们可以包含任意属性来传递我们想传递的数据。
 
-稍后我们会看到，action creater可以返回一些除了action之外的其他东西，比如函数。这对于异步action
+稍后我们会看到，action creator可以返回一些除了action之外的其他东西，比如函数。这对于异步action
 处理来说将会非常有用。
 
 我们可以调用action creator 并得到我们期望得到的action：
@@ -114,13 +114,13 @@ action creators 其实就是一个函数而已。
 ok，这样action creator就可以工作了。但是仅在控制台log出action似乎也没什么用。。。
 
 我们需要让创建好的action被发送到某个地方，这样对这个action感兴趣的“人”就可以知道发生了什么
-并根据action做出相应回应。我们称这个过程为“Dispatching an action（派遣一个动作）”。
+并根据action做出相应回应。我们称这个过程为“Dispatching an action（派发一个动作）”。
 
 > To dispatch an action we need... a dispatch function ("Captain obvious").
 > And to let anyone interested know that an action happened, we need a mechanism to register
 > "handlers". Such "handlers" to actions in traditional flux application are called stores 
 
-为了dispatch（派遣），我们需要一个dispatch函数。并且为了让那些对action感兴趣的人知道发生了
+为了dispatch（派发），我们需要一个dispatch函数。并且为了让那些对action感兴趣的人知道发生了
 什么，我们需要一个机制来注册handlers。在传统的flux应用中，这种actions的handlers("handlers" to actions)
 被叫做stores。下一章节我们会看到这些stores是如何被调用的。
 
@@ -157,7 +157,7 @@ ActionCreator -> Action
 
 ## 如何将这些修改通知到应用的每一个部分？
 
-Using subscribers to state's modifications.
+使用subscriber(订阅者)来关注state的改变。（Using subscribers to state's modifications.）
 
 Redux帮你将这一切联系在一起。
 概括地说，Redux给我们提供了：
@@ -311,7 +311,7 @@ Redux的实例叫做store，通过如下方式可以被创建：
 我们的state并没有变化，因为我们还没有dispatch任何action。
 但是最后一个例子中，需要注意以下几点：
 
-1. 我家乡我们的action包含了一个type属性和一个value属性。type属性是flux actions的一个惯例，
+1. 我假想我们的action包含了一个type属性和一个value属性。type属性是flux actions的一个惯例，
    value属性可以是任意值。
    
 2. 在reducers中，你会经常看到的模式：使用switch来适当地响应一个接收到的action参数
