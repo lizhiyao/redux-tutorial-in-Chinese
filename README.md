@@ -561,11 +561,358 @@ ActionCreator -> Action -> dispatcher -> reducer
 
 # 07 dispatch-async-action-1
 
+ 我们之前知道了如何dispatch actions以及actions如何通过reducers改变应用的state。
+ 
+ 但是我们我们考虑的都是同步的actions，更确切的说，是action creators创建了一个同步的action，
+ 即每当调用action creator时，会立即返回一个action。
+ 
+ 让我们来想象一个简单的异步的情况：
+ 
+ 用户点击了一个上面写着“Say hi in 2s”的按钮。当他点击了按钮2s后，我们的视图才会更新。
+ 
+ 显然，在React的store中，hi的这条消息是我们应用需要保存的state的一部分。
+ 但是我们想要的效果是 当action creator被调用2s后再保存这条消息。
+ 
+ 按照我们之前的写法会这样去写：
+ 
+    import { createStore, combineReducers } from 'redux'
+
+    var reducer = combineReducers({
+        speaker: function (state = {}, action) {
+            console.log('speaker was called with state', state, 'and action', action)
+
+            switch (action.type) {
+                case 'SAY':
+                    return {
+                        ...state,
+                        message: action.message
+                    }
+                default:
+                    return state;
+            }
+        }
+    })
+    var store_0 = createStore(reducer)
+
+    var sayActionCreator = function (message) {
+        return {
+            type: 'SAY',
+            message
+        }
+    }
+
+    console.log("\n", 'Running our normal action creator:', "\n")
+
+    console.log(new Date());
+    store_0.dispatch(sayActionCreator('Hi'))
+
+    console.log(new Date());
+    console.log('store_0 state after action SAY:', store_0.getState())
+    // Output (skipping initialization output):
+    //     Sun Aug 02 2015 01:03:05 GMT+0200 (CEST)
+    //     speaker was called with state {} and action { type: 'SAY', message: 'Hi' }
+    //     Sun Aug 02 2015 01:03:05 GMT+0200 (CEST)
+    //     store_0 state after action SAY: { speaker: { message: 'Hi' } }
+
+我们会看到按照同步的方式去写，store会立即更新。
+
+或许我们会这么写：
+
+    var asyncSayActionCreator_0 = function (message) {
+        setTimeout(function () {
+            return {
+                type: 'SAY',
+                message
+            }
+        }, 2000)
+    }
+
+这样的话，action creator返回的会是undefined而不是action。
+
+有这样的一个技巧来解决问题：我们不返回action，而是返回一个函数。
+
+    var asyncSayActionCreator_1 = function (message) {
+        return function (dispatch) {
+            setTimeout(function () {
+                dispatch({
+                    type: 'SAY',
+                    message
+                })
+            }, 2000)
+        }
+    }
+    
+这样的问题是，返回的依旧不是action。有很大的可能，我们的reducers并不知道要做什么。
+
+让我们来想一个更好地办法来解决这个问题！
+
 # 08 dispatch-async-action-2
+
+如果运行07最后的代码，会得到如下错误：
+
+    // Output:
+    //     ...
+    //     /Users/classtar/Codes/redux-tutorial/node_modules/redux/node_modules/invariant/invariant.js:51
+    //         throw error;
+    //               ^
+    //     Error: Invariant Violation: Actions must be plain objects. Use custom middleware for async actions.
+    //     ...
+
+action creator返回的函数并没有成功的被传给reducer，React很友好的给了我们一个提示：
+"Use custom middleware for async actions." 看上去我们已经在通往成功解决问题的
+道路上了，但是提示中提及到的middleware是什么鬼呢？
 
 # 09 middleware
 
+通常意义上，在一个应用中，A模块想给B模块传递一些C，在A发送C之后B接收到C之前，
+C可能经过D、E、F等的一些处理。这些类似于D、E、F的东西被称为middleware（中间件）。
+
+> A -----> B
+> 
+> A ---> D(middleware 1) ---> E(middleware 2) ---> (F)middleware 3 --> ... ---> B
+
+那么在Redux的上下文中，middleware是如何帮助我们的呢？像08中提到的，我们异步的action reducer
+直接返回一个函数，Redux是不认可的。那如果有一个中间件可以帮我们把返回的函数转化成Redux可以接受的函数，
+问题是不是就解决了呢？
+
+> action ---> dispatcher ---> middleware 1 ---> middleware 2 ---> reducers
+
+每当一个action（或者其他什么，比如我们异步的action reducer返回的函数）被dispatch时，
+middleware帮助我们的action reducer dispatch 一个“合格的”action（或者middleware什么都不做）。
+
+在Redux中，middleware是这样的一些函数：必须有明确的签名以及遵守一个严格的结构：
+
+    var anyMiddleware = function ({ dispatch, getState }) {
+        return function(next) {
+            return function (action) {
+                // your middleware-specific code goes here
+            }
+        }
+    }
+    
+正如你看到的，middleware由三个按顺序执行的函数组合而成。
+
+1. 第一层提供了dispatch函数和getState函数
+
+// As you can see above, a middleware is made of 3 nested functions (that will get called sequentially):
+// 1) The first level provide the dispatch function and a getState function (if your
+//     middleware or your action creator needs to read data from state) to the 2 other levels
+// 2) The second level provide the next function that will allow you to explicitly hand over
+//     your transformed input to the next middleware or to Redux (so that Redux can finally call all reducers).
+// 3) the third level provides the action received from the previous middleware or from your dispatch
+//     and can either trigger the next middleware (to let the action continue to flow) or process
+//     the action in any appropriate way.
+
+如果熟悉函数式编程的人对以上模式不会陌生。如果不熟悉也没关系，这不会影响我们队react的理解，
+我们可以使用curry简化上面的代码：
+
+    // "curry" may come any functional programming library (lodash, ramda, etc.)
+    var thunkMiddleware = curry(
+        ({dispatch, getState}, next, action) => (
+            // your middleware-specific code goes here
+        )
+    );
+
+我们上面写的这个middleware叫做thunk middleware。其源码在Github可以找到：
+[https://github.com/gaearon/redux-thunk](https://github.com/gaearon/redux-thunk)
+
+摘抄过来的一段关于redux-thunk 动机的话：
+
+> Redux Thunk middleware allows you to write action creators that return a function instead of an action. 
+> The thunk can be used to delay the dispatch of an action, or to dispatch only if a certain condition is met.
+> The inner function receives the store methods dispatch and getState as parameters.
+
+为了告诉Redux我们使用了middleware，我们必须使用Redux为我们提供的applyMiddleware方法。
+该方法把所有的middleware作为参数，返回一个以createStore作为参数被调用的函数。
+当这个返回的函数被调用后，它会返回一个middleware已经被应用到dispatch方法的高阶store。
+
+下面是一个实例：
+
+    import { createStore, combineReducers, applyMiddleware } from 'redux'
+
+    const finalCreateStore = applyMiddleware(thunkMiddleware)(createStore)
+    // 如果使用了很多中间件，要这样写: applyMiddleware(middleware1, middleware2, ...)(createStore)
+
+    var reducer = combineReducers({
+        speaker: function (state = {}, action) {
+            console.log('speaker was called with state', state, 'and action', action)
+
+            switch (action.type) {
+                case 'SAY':
+                    return {
+                        ...state,
+                        message: action.message
+                    }
+                default:
+                    return state
+            }
+        }
+    })
+
+    const store_0 = finalCreateStore(reducer)
+    // Output:
+    //     speaker was called with state {} and action { type: '@@redux/INIT' }
+    //     speaker was called with state {} and action { type: '@@redux/PROBE_UNKNOWN_ACTION_s.b.4.z.a.x.a.j.o.r' }
+    //     speaker was called with state {} and action { type: '@@redux/INIT' }
+
+现在我们有了一个中间件已经准备好的store了。让我们再次尝试一下之前的异步的action：
+
+    var asyncSayActionCreator_1 = function (message) {
+        return function (dispatch) {
+            setTimeout(function () {
+                console.log(new Date(), 'Dispatch action now:')
+                dispatch({
+                    type: 'SAY',
+                    message
+                })
+            }, 2000)
+        }
+    }
+
+    console.log("\n", new Date(), 'Running our async action creator:', "\n")
+
+    store_0.dispatch(asyncSayActionCreator_1('Hi'))
+
+    // Output:
+    //     Mon Aug 03 2015 00:01:20 GMT+0200 (CEST) Running our async action creator:
+    //     Mon Aug 03 2015 00:01:22 GMT+0200 (CEST) 'Dispatch action now:'
+    //     speaker was called with state {} and action { type: 'SAY', message: 'Hi' }
+
+我们的action在2s后被正确的执行了。
+
+    // Just for your curiosity, here is how a middleware to log all actions that are dispatched, would
+    // look like:
+
+    function logMiddleware ({ dispatch, getState }) {
+        return function(next) {
+            return function (action) {
+                console.log('logMiddleware action received:', action)
+                return next(action)
+            }
+        }
+    }
+
+    // Same below for a middleware to discard all actions that goes through (not very useful as is
+    // but with a bit of more logic it could selectively discard a few actions while passing others
+    // to next middleware or Redux):
+    
+    function discardMiddleware ({ dispatch, getState }) {
+        return function(next) {
+            return function (action) {
+                console.log('discardMiddleware action received:', action)
+            }
+        }
+    }
+    
+让我们来总结一下：
+
+1. 我们知道了如何写actions和action creators
+2. 我们知道了如何dispatch actions
+3. 我们知道了如何使用中间件处理一些普通的actions
+
+使用flux思想构建的应用的单向数据流动，还差被通知到state更新后如何响应这一环节了。
+
+那么我们是如何订阅Redux中store更新的呢？
+
 # 10 state-subscriber
+
+我们还缺少至关重要的一环就可以完成Flux的这个“圈”了。
+
+    _________      _________       ___________
+    |         |    | Change  |     |   React   |
+    |  Store  |----▶ events  |-----▶   Views   |
+    |_________|    |_________|     |___________|
+    
+
+没有这一环，当store更新时，我们没办法更新views。
+
+幸运的是，我们可以很轻松的watch到Redux的store的变化。
+
+    store.subscribe(function() {
+        // retrieve latest store state here
+        // Ex:
+        console.log(store.getState());
+    })
+    
+
+我们可以来验证一下：
+
+    import { createStore, combineReducers } from 'redux'
+
+    var itemsReducer = function (state = [], action) {
+        console.log('itemsReducer was called with state', state, 'and action', action)
+
+        switch (action.type) {
+            case 'ADD_ITEM':
+                return [
+                    ...state,
+                    action.item
+                ]
+            default:
+                return state;
+        }
+    }
+
+    var reducer = combineReducers({ items: itemsReducer })
+    var store_0 = createStore(reducer)
+
+    store_0.subscribe(function() {
+        console.log('store_0 has been updated. Latest store state:', store_0.getState());
+        // Update your views here
+    })
+
+    var addItemActionCreator = function (item) {
+        return {
+            type: 'ADD_ITEM',
+            item: item
+        }
+    }
+
+    store_0.dispatch(addItemActionCreator({ id: 1234, description: 'anything' }))
+
+    // Output:
+    //     ...
+    //     store_0 has been updated. Latest store state: { items: [ { id: 1234, description: 'anything' } ] }
+    
+subscribe回调被正确的调用了，我们的store也包含了新的item。
+
+理论上说，我们到此就可以结束了。我们Flux的“环”已经可以合上了。我们理解了组成
+Flux的每一层，并且知道了它并没有那么神秘。
+
+坦白的说，其实关于Flux我们还有很多可以说的，并且还有一些东西有意的放在最后的实例中，以此来保证之前讲解
+的Flux的每一层是最简单的：
+
+1. 为什么我们的subscriber不接收state作为参数？
+2. 我们没有接收新的state，我们利用了store_0，这种解决方案在实际项目中是不可接受的。
+3. 实际上我们该如何更新views呢？
+4. 该如何取消state更新的订阅？
+5. 更通俗一点说，我们在React这种如何继承Redux？
+
+我们进入了深一层次的话题：在React中如何使用Redux？
+
+明白了最后这个问题对于理解Redux和React没有必然的联系是很有帮助的。
+Redux仅仅是一个js的状态容器。
+
+// In that perspective we would be a bit lost if it wasn't for react-redux (https://github.com/rackt/react-redux).
+// Previously integrated inside Redux (before 1.0.0), this repository holds all the bindings we need to simplify
+// our life when using Redux inside React.
+
+// Back to our "subscribe" case... Why exactly do we have this subscribe function that seems so simple but at
+// the same time also seems to not provide enough features?
+
+// Its simplicity is actually its power! Redux, with its current minimalist API (including "subscribe") is
+//  highly extensible and this allows developers to build some crazy products like the Redux DevTools
+// (https://github.com/gaearon/redux-devtools).
+
+// But in the end we still need a "better" API to subscribe to our store changes. That's exactly what react-redux
+// brings us: an API that will allow us to seamlessly fill the gap between the raw Redux subscribing mechanism
+// and our developer expectations. In the end, you won't need to use "subscribe" directly. Instead you will
+// use bindings such as "provide" or "connect" and those will hide from you the "subscribe" method.
+
+// So yeah, the "subscribe" method will still be used but it will be done through a higher order API that
+// handles access to redux state for you.
+
+// We'll now cover those bindings and show how simple it is to wire your components to Redux's state.
 
 # 11 Provider-and-connect
 
