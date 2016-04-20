@@ -919,3 +919,12 @@ Redux仅仅是一个js的状态容器。
 # 12 final-words
 
 
+# 其他学习资源
+
+[http://redux.js.org/](http://redux.js.org/)
+
+[Redux 中文文档](http://cn.redux.js.org/)
+
+[Redux教程1：环境搭建，初写Redux](https://yq.aliyun.com/articles/2628)
+
+
