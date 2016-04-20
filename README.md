@@ -732,11 +732,154 @@ Redux的实例叫做store，通过如下方式可以被创建：
 
 但是createStore只接收一个reducer函数。
 
-那我们该怎样
+那我们该怎样将reducer组合在一起？如何告诉React组合后的每一个reducer只负责处理一部分的state？
+
+方法很简单！只需要使用combineReducers函数。
+combineReducers takes a hash and
+returns a function that, when invoked, will call all our reducers, retrieve the new slice of state and
+reunite them in a state object (a simple hash {}) that Redux is holding.
+
+少废话，上代码：
 
 
+    import { createStore, combineReducers } from 'redux'
+
+    var reducer = combineReducers({
+        user: userReducer,
+        items: itemsReducer
+    })
+    
+    // Output:
+    // userReducer was called with state {} and action { type: '@@redux/INIT' }
+    // userReducer was called with state {} and action { type: '@@redux/PROBE_UNKNOWN_ACTION_9.r.k.r.i.c.n.m.i' }
+    // itemsReducer was called with state [] and action { type: '@@redux/INIT' }
+    // itemsReducer was called with state [] and action { type: '@@redux/PROBE_UNKNOWN_ACTION_4.f.i.z.l.3.7.s.y.v.i' }
+    
+    var store_0 = createStore(reducer)
+    // Output:
+    // userReducer was called with state {} and action { type: '@@redux/INIT' }
+    // itemsReducer was called with state [] and action { type: '@@redux/INIT' }
+
+// As you can see in the output, each reducer is correctly called with the init action @@redux/INIT.
+// But what is this other action? This is a sanity check implemented in combineReducers
+// to assure that a reducer will always return a state != 'undefined'.
+// Please note also that the first invocation of init actions in combineReducers share the same purpose
+// as random actions (to do a sanity check).
+
+console.log('store_0 state after initialization:', store_0.getState())
+// Output:
+// store_0 state after initialization: { user: {}, items: [] }
+
+// It's interesting to note that Redux handles our slices of state correctly,
+// the final state is indeed a simple hash made of the userReducer's slice and the itemsReducer's slice:
+// {
+//     user: {}, // {} is the slice returned by our userReducer
+//     items: [] // [] is the slice returned by our itemsReducer
+// }
+
+// Since we initialized the state of each of our reducers with a specific value ({} for userReducer and
+// [] for itemsReducer) it's no coincidence that those values are found in the final Redux state.
+
+// By now we have a good idea of how reducers will work. It would be nice to have some
+// actions being dispatched and see the impact on our Redux state.
 
 # 06 dispatch-action
+
+目前为止，我们专注于创建reducer(s)，并没有dispatch任何action。
+接下来我们在原有例子基础上来增加一点处理action的代码：
+
+
+    var userReducer = function (state = {}, action) {
+        console.log('userReducer was called with state', state, 'and action', action)
+
+        switch (action.type) {
+            case 'SET_NAME':
+                return {
+                    ...state,
+                    name: action.name
+                }
+            default:
+                return state;
+        }
+    }
+    var itemsReducer = function (state = [], action) {
+        console.log('itemsReducer was called with state', state, 'and action', action)
+
+        switch (action.type) {
+            case 'ADD_ITEM':
+                return [
+                    ...state,
+                    action.item
+                ]
+            default:
+                return state;
+        }
+    }
+
+    import { createStore, combineReducers } from 'redux'
+
+    var reducer = combineReducers({
+        user: userReducer,
+        items: itemsReducer
+    })
+    var store_0 = createStore(reducer)
+
+
+    console.log("\n", '### It starts here')
+    console.log('store_0 state after initialization:', store_0.getState())
+    // Output:
+    // store_0 state after initialization: { user: {}, items: [] }
+
+接下来来dispatch我们的第一个action。回想之前说的：为了dispatch一个action，我们
+需要一个dispatch函数。
+
+Redux给我们提供了所需的dispatch函数，并且会把action通知给所有reducers。
+我们可以通过React的实例的dispatch属性得到这个dispatch函数。
+
+    store_0.dispatch({
+        type: 'AN_ACTION'
+    })
+    // Output:
+    // userReducer was called with state {} and action { type: 'AN_ACTION' }
+    // itemsReducer was called with state [] and action { type: 'AN_ACTION' }
+    
+通过以上代码可以看出，每一个reducer都被调用了，但是没有reducer在意这个action的type。
+
+    console.log('store_0 state after action AN_ACTION:', store_0.getState())
+    // Output: store_0 state after action AN_ACTION: { user: {}, items: [] }
+    
+稍等，难道我们不应该使用一个action creator来发送一个action吗？
+我们确实可以使用actionCreator，不过目前在我们的例子中仅仅是返回一个action，
+使用actionCreator没不能带来什么更多的好处。
+考虑到实际项目的复杂困难程度，我们还是按照flux思想来实践比较好。
+让我们使用action creator来发送我们的例子中reducer关心的action。
+
+    var setNameActionCreator = function (name) {
+        return {
+            type: 'SET_NAME',
+            name: name
+        }
+    }
+
+    store_0.dispatch(setNameActionCreator('bob'))
+    
+    // Output:
+    // userReducer was called with state {} and action { type: 'SET_NAME', name: 'bob' }
+    // itemsReducer was called with state [] and action { type: 'SET_NAME', name: 'bob' }
+
+    console.log('store_0 state after action SET_NAME:', store_0.getState())
+    // Output:
+    // store_0 state after action SET_NAME: { user: { name: 'bob' }, items: [] }
+    
+    
+到此，我们处理了应用的第一个action，并改变了应用的state.
+
+但是，这个例子相对于实际项目来说太简单了。例如，如果在dispatch一个action前想
+异步请求数据该怎么办？这就是接下来我们要讨论的问题了。
+
+目前为止的数据流动情况：
+ActionCreator -> Action -> dispatcher -> reducer
+
 
 # 07 dispatch-async-action-1
 
