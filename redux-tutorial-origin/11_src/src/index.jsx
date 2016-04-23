@@ -2,6 +2,8 @@
 
 // This file is the entry point of our JS bundle. It's here that we'll create our Redux store,
 // instantiate our React Application root component and attach it to the DOM.
+// 这个文件是JS bundle文件的入口文件。
+// 我们在这里创建Redux的Store，实例化React应用的根组件，并将其绑定到一个DOM结点上。
 
 import React from 'react'
 import { render } from 'react-dom'

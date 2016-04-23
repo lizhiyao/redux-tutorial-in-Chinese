@@ -7,14 +7,17 @@
 
 // As we previously explained, when using the Provider component we allow all components of our app to
 // access Redux. But this access can only be made through the undocumented feature "React's context". To
-// avoid asking you to use such a "dark" React API, React-Redux is exposing a function that you can use
+// avoid asking you to use such a "dark" React API, React-Redux is exposing 暴漏 a function that you can use
 // on a component class.
 
 // The function we're talking about is "connect" and it allows to literally connect your component with your Redux's store.
+
+// literally adv. 照字面地；逐字地；不夸张地；正确地；简直
+
 // By doing so, it provides your store's dispatch function through a component's prop and also adds any
 // properties you want to expose as part of your store's state.
 
-// Using "connect", you'll turn a dumb component into a smart component with very little code overhead
+// Using "connect", you'll turn a dumb 愚蠢的 component into a smart component with very little code overhead
 // (https://medium.com/@dan_abramov/smart-and-dumb-components-7ca2f9a7c7d0).
 
 // "connect" is a function that takes as parameters few mapping functions and that returns a function expecting
