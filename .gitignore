@@ -1,2 +1,3 @@
 .DS_Store
-/redux-tutorial-origin/node_modules
+redux-tutorial-origin/node_modules
+example/todo/node_modules
